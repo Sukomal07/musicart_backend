@@ -4,7 +4,7 @@ import cookieParser from 'cookie-parser'
 import errorMiddleware from './middlewares/error.middleware.js'
 import dotenv from 'dotenv'
 import userRoutes from './routes/user.routes.js'
-
+import productRoutes from './routes/product.routes.js'
 dotenv.config()
 
 const app = express()
@@ -19,6 +19,7 @@ app.use(cookieParser())
 
 //routes config
 app.use("/api/v1/user", userRoutes)
+app.use("/api/v1/product", productRoutes)
 
 app.all("*", (req, res) => {
     res.status(404).json({
