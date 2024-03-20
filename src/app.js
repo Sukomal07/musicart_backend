@@ -5,6 +5,8 @@ import errorMiddleware from './middlewares/error.middleware.js'
 import dotenv from 'dotenv'
 import userRoutes from './routes/user.routes.js'
 import productRoutes from './routes/product.routes.js'
+import invoiceRoutes from './routes/invoice.routes.js'
+
 dotenv.config()
 
 const app = express()
@@ -20,6 +22,7 @@ app.use(cookieParser())
 //routes config
 app.use("/api/v1/user", userRoutes)
 app.use("/api/v1/product", productRoutes)
+app.use("/api/v1/invoice", invoiceRoutes)
 
 app.all("*", (req, res) => {
     res.status(404).json({

@@ -4,6 +4,7 @@ import { apiResponse } from '../utils/apiResponse.js'
 import Product from "../models/product.model.js";
 import mongoose from "mongoose";
 import Cart from "../models/cart.model.js";
+import Invoice from "../models/invoice.model.js";
 
 export const addProduct = asyncHandler(async (req, res) => {
     const { name, description, about, modelNo, price, colour, type, company, pictures, rating, customer } = req.body
@@ -176,7 +177,6 @@ export const filterProducts = asyncHandler(async (req, res) => {
     res.status(200).json(new apiResponse(200, products, 'Filtered products'));
 })
 
-
 export const addToCart = asyncHandler(async (req, res) => {
     const { productId, quantity } = req.body;
     const userId = req.user?._id
@@ -262,5 +262,134 @@ export const viewCart = asyncHandler(async (req, res) => {
 
     res.status(200).json(
         new apiResponse(200, cart, 'Cart details')
+    );
+})
+
+export const placeOrder = asyncHandler(async (req, res) => {
+    const { address, payment_method, orderTotal } = req.body;
+    const userId = req.user?._id;
+
+    if (!address || !payment_method) {
+        throw new apiError(400, 'Address and payment method are required');
+    }
+
+    const cart = await Cart.findOne({ userId });
+
+    if (!cart || cart.items.length === 0) {
+        throw new apiError(404, 'Cart is empty');
+    }
+
+    const invoice = new Invoice({
+        userId,
+        address,
+        payment_method,
+        items: cart.items.map(item => ({ productId: item.productId })),
+        orderTotal
+    });
+
+    try {
+        await invoice.validate()
+    } catch (error) {
+        const validationErrors = [];
+        for (const key in error.errors) {
+            validationErrors.push(error.errors[key].message);
+        }
+        throw new apiError(400, validationErrors.join(', '));
+    }
+
+    await invoice.save();
+
+    await Cart.findOneAndDelete({ userId });
+
+    res.status(200).json(
+        new apiResponse(200, invoice, 'Order placed successfully')
+    );
+})
+
+export const getAllInvoices = asyncHandler(async (req, res) => {
+    const userId = req.user?._id;
+
+    const invoices = await Invoice.aggregate([
+        { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+        {
+            $lookup: {
+                from: "products",
+                localField: "items.productId",
+                foreignField: "_id",
+                as: "items.product",
+                pipeline: [
+                    {
+                        $project: {
+                            _id: 0,
+                            name: 1,
+                            colour: 1,
+                            picture: { $arrayElemAt: ["$pictures", 0] }
+                        }
+                    }
+                ]
+            },
+        },
+        {
+            $project: {
+                address: 1,
+                payment_method: 1,
+                orderTotal: 1,
+                items: "$items.product"
+            },
+        },
+    ]);
+
+    if (invoices.length === 0) {
+        throw new apiError(404, "No Invoice found")
+    }
+
+    res.status(200).json(
+        new apiResponse(200, invoices, 'All invoices')
+    );
+})
+
+export const getInvoiceById = asyncHandler(async (req, res) => {
+    const { invoiceId } = req.params;
+
+    const invoice = await Invoice.aggregate([
+        {
+            $match: {
+                _id: new mongoose.Types.ObjectId(invoiceId),
+            },
+        },
+        {
+            $lookup: {
+                from: "products",
+                localField: "items.productId",
+                foreignField: "_id",
+                as: "items.product",
+                pipeline: [
+                    {
+                        $project: {
+                            _id: 0,
+                            name: 1,
+                            colour: 1,
+                            picture: { $arrayElemAt: ["$pictures", 0] }
+                        }
+                    }
+                ]
+            },
+        },
+        {
+            $project: {
+                address: 1,
+                payment_method: 1,
+                orderTotal: 1,
+                items: "$items.product"
+            },
+        },
+    ]);
+
+    if (invoice.length === 0) {
+        throw new apiError(404, 'Invoice not found');
+    }
+
+    res.status(200).json(
+        new apiResponse(200, invoice[0], 'Invoice details')
     );
 })
