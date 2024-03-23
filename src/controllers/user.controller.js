@@ -53,14 +53,14 @@ export const registerUser = asyncHandler(async (req, res) => {
 })
 
 export const loginUser = asyncHandler(async (req, res) => {
-    const { email, mobile, password } = req.body
+    const { emailOrMobile, password } = req.body
 
-    if ((!email && !mobile) || !password) {
+    if (!emailOrMobile || !password) {
         throw new apiError(400, 'Email or mobile number and password are required');
     }
 
 
-    const user = await User.findOne({ $or: [{ email }, { mobile }] }).select("+password")
+    const user = await User.findOne({ $or: [{ email: emailOrMobile }, { mobile: emailOrMobile }] }).select("+password")
 
     if (!user) {
         throw new apiError(404, "User does not exists")
