@@ -118,38 +118,8 @@ export const searchProductByName = asyncHandler(async (req, res) => {
     res.status(200).json(new apiResponse(200, products, 'All products'));
 })
 
-export const sortProducts = asyncHandler(async (req, res) => {
-    const { sortBy } = req.query;
-    let sortField = 'price';
-    let sortOrder = 1;
-
-    if (sortBy === 'lowest') {
-        sortOrder = 1;
-    } else if (sortBy === 'highest') {
-        sortOrder = -1;
-    } else if (sortBy === 'a-z') {
-        sortField = 'name';
-        sortOrder = 1;
-    } else if (sortBy === 'z-a') {
-        sortField = 'name';
-        sortOrder = -1;
-    } else {
-        throw new apiError(400, 'Invalid sortBy parameter');
-    }
-
-    const products = await Product.aggregate([
-        {
-            $sort: {
-                [sortField]: sortOrder
-            }
-        }
-    ]);
-
-    res.status(200).json(new apiResponse(200, products, 'Sorted products'));
-})
-
 export const filterProducts = asyncHandler(async (req, res) => {
-    const { type, company, colour, price } = req.query;
+    const { type, company, colour, price, sortBy } = req.query;
     const filters = [];
 
     if (type) {
@@ -170,11 +140,32 @@ export const filterProducts = asyncHandler(async (req, res) => {
             filters.push({ price: { $gte: priceRange[0], $lte: priceRange[1] } });
         }
     }
-    const products = await Product.aggregate([
-        { $match: { $and: filters } }
-    ]);
 
-    res.status(200).json(new apiResponse(200, products, 'Filtered products'));
+    let sortField = 'price';
+    let sortOrder = 1;
+
+    if (sortBy === 'lowest') {
+        sortOrder = 1;
+    } else if (sortBy === 'highest') {
+        sortOrder = -1;
+    } else if (sortBy === 'a-z') {
+        sortField = 'name';
+        sortOrder = 1;
+    } else if (sortBy === 'z-a') {
+        sortField = 'name';
+        sortOrder = -1;
+    }
+
+    const aggregationPipeline = [];
+    if (filters.length > 0) {
+        aggregationPipeline.push({ $match: { $and: filters } });
+    }
+
+    aggregationPipeline.push({ $sort: { [sortField]: sortOrder } });
+
+    const products = await Product.aggregate(aggregationPipeline);
+
+    res.status(200).json(new apiResponse(200, products, 'Filtered and sorted products'));
 })
 
 export const addToCart = asyncHandler(async (req, res) => {
@@ -208,7 +199,7 @@ export const addToCart = asyncHandler(async (req, res) => {
     await cart.save();
 
     res.status(200).json(
-        new apiResponse(200, cart, 'Product added successfully')
+        new apiResponse(200, cart, 'Product added to cart successfully')
     );
 })
 
@@ -261,7 +252,7 @@ export const viewCart = asyncHandler(async (req, res) => {
     }
 
     res.status(200).json(
-        new apiResponse(200, cart, 'Cart details')
+        new apiResponse(200, cart[0], 'Cart details')
     );
 })
 
