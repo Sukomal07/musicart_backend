@@ -181,10 +181,15 @@ export const addToCart = asyncHandler(async (req, res) => {
     const existingItemIndex = cart.items.findIndex(item => item.productId.equals(new mongoose.Types.ObjectId(productId)));
 
     if (existingItemIndex !== -1) {
-        cart.items[existingItemIndex].quantity += quantity;
+        if (quantity) {
+            cart.items[existingItemIndex].quantity = quantity;
+        } else {
+            cart.items[existingItemIndex].quantity += 1;
+        }
     } else {
-        cart.items.push({ productId, quantity });
+        cart.items.push({ productId, quantity: quantity || 1 });
     }
+
 
     try {
         await cart.validate()
@@ -199,7 +204,7 @@ export const addToCart = asyncHandler(async (req, res) => {
     await cart.save();
 
     res.status(200).json(
-        new apiResponse(200, cart, 'Product added to cart successfully')
+        new apiResponse(200, cart, 'Product added successfully')
     );
 })
 
@@ -220,7 +225,7 @@ export const viewCart = asyncHandler(async (req, res) => {
         { $unwind: "$product" },
         {
             $project: {
-                _id: 0,
+                _id: "$product._id",
                 name: "$product.name",
                 colour: "$product.colour",
                 price: "$product.price",
@@ -234,6 +239,7 @@ export const viewCart = asyncHandler(async (req, res) => {
                 _id: null,
                 items: {
                     $push: {
+                        _id: "$_id",
                         name: "$name",
                         colour: "$colour",
                         price: "$price",
@@ -242,7 +248,8 @@ export const viewCart = asyncHandler(async (req, res) => {
                         totalItemPrice: "$totalItemPrice"
                     }
                 },
-                totalCartPrice: { $sum: "$totalItemPrice" }
+                totalCartPrice: { $sum: "$totalItemPrice" },
+                totalCartCount: { $sum: "$quantity" }
             }
         }
     ]);
