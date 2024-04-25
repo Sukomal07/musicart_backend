@@ -1,6 +1,4 @@
 import express from 'express'
-import cron from 'node-cron'
-import axios from 'axios'
 import cors from 'cors'
 import cookieParser from 'cookie-parser'
 import errorMiddleware from './middlewares/error.middleware.js'
@@ -30,15 +28,6 @@ app.get("/ping", (req, res) => {
     res.send("Server is working");
 });
 
-
-cron.schedule('*/5 * * * *', async () => {
-    try {
-        const response = await axios.get(`${process.env.PROD_URL}/ping`);
-        console.log('Ping response:', response.data);
-    } catch (error) {
-        console.error('Error making ping request:', error.message);
-    }
-});
 
 app.all("*", (req, res) => {
     res.status(404).json({
